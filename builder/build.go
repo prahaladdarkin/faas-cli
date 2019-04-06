@@ -20,7 +20,7 @@ import (
 const AdditionalPackageBuildArg = "ADDITIONAL_PACKAGE"
 
 // BuildImage construct Docker image from function parameters
-func BuildImage(image string, handler string, functionName string, language string, nocache bool, squash bool, shrinkwrap bool, buildArgMap map[string]string, buildOptions []string, tag string) error {
+func BuildImage(image string, handler string, functionName string, language string, nocache bool, squash bool, shrinkwrap bool, buildArgMap map[string]string, buildOptions []string, tag string, buildLabelMap map[string]string) error {
 
 	if stack.IsValidTemplate(language) {
 
@@ -57,36 +57,16 @@ func BuildImage(image string, handler string, functionName string, language stri
 
 		var tempPath string
 
-		if strings.ToLower(language) == "dockerfile" {
+		if err := ensureHandlerPath(handler); err != nil {
+			return fmt.Errorf("building %s, %s is an invalid path", imageName, handler)
+		}
 
-			tempPath = handler
-			if shrinkwrap {
-				tempPath = dockerBuildFolder(functionName, handler, language)
-				fmt.Printf("%s shrink-wrapped to %s\n", functionName, tempPath)
-				return nil
-			}
+		tempPath = createBuildTemplate(functionName, handler, language, isLanguageTemplate(language))
+		fmt.Printf("Building: %s with %s template. Please wait..\n", imageName, language)
 
-			if err := ensureHandlerPath(handler); err != nil {
-
-				return fmt.Errorf("building %s, %s is an invalid path", imageName, handler)
-			}
-
-			fmt.Printf("Building: %s with Dockerfile. Please wait..\n", imageName)
-
-		} else {
-
-			if err := ensureHandlerPath(handler); err != nil {
-				return fmt.Errorf("building %s, %s is an invalid path", imageName, handler)
-			}
-
-			tempPath = createBuildTemplate(functionName, handler, language)
-			fmt.Printf("Building: %s with %s template. Please wait..\n", imageName, language)
-
-			if shrinkwrap {
-				fmt.Printf("%s shrink-wrapped to %s\n", functionName, tempPath)
-
-				return nil
-			}
+		if shrinkwrap {
+			fmt.Printf("%s shrink-wrapped to %s\n", functionName, tempPath)
+			return nil
 		}
 
 		buildOptPackages, buildPackageErr := getBuildOptionPackages(buildOptions, language)
@@ -104,6 +84,7 @@ func BuildImage(image string, handler string, functionName string, language stri
 			HTTPSProxy:       os.Getenv("https_proxy"),
 			BuildArgMap:      buildArgMap,
 			BuildOptPackages: buildOptPackages,
+			BuildLabelMap:    buildLabelMap,
 		}
 
 		spaceSafeCmdLine := getDockerBuildCommand(dockerBuildVal)
@@ -119,7 +100,7 @@ func BuildImage(image string, handler string, functionName string, language stri
 }
 
 func getDockerBuildCommand(build dockerBuild) []string {
-	flagSlice := buildFlagSlice(build.NoCache, build.Squash, build.HTTPProxy, build.HTTPSProxy, build.BuildArgMap, build.BuildOptPackages)
+	flagSlice := buildFlagSlice(build.NoCache, build.Squash, build.HTTPProxy, build.HTTPSProxy, build.BuildArgMap, build.BuildOptPackages, build.BuildLabelMap)
 	command := []string{"docker", "build"}
 	command = append(command, flagSlice...)
 	command = append(command, "-t", build.Image, ".")
@@ -136,10 +117,11 @@ type dockerBuild struct {
 	HTTPSProxy       string
 	BuildArgMap      map[string]string
 	BuildOptPackages []string
+	BuildLabelMap    map[string]string
 }
 
 // createBuildTemplate creates temporary build folder to perform a Docker build with language template
-func createBuildTemplate(functionName string, handler string, language string) string {
+func createBuildTemplate(functionName string, handler string, language string, useFunction bool) string {
 	tempPath := fmt.Sprintf("./build/%s/", functionName)
 	fmt.Printf("Clearing temporary build folder: %s\n", tempPath)
 
@@ -148,15 +130,21 @@ func createBuildTemplate(functionName string, handler string, language string) s
 		fmt.Printf("Error clearing temporary build folder %s\n", tempPath)
 	}
 
-	fmt.Printf("Preparing %s %s\n", handler+"/", tempPath+"function")
+	functionPath := tempPath
+	if useFunction {
+		functionPath += "/function"
+	}
 
-	functionPath := tempPath + "/function"
+	fmt.Printf("Preparing %s %s\n", handler+"/", functionPath)
+
 	mkdirErr := os.MkdirAll(functionPath, 0700)
 	if mkdirErr != nil {
 		fmt.Printf("Error creating path %s - %s.\n", functionPath, mkdirErr.Error())
 	}
 
-	CopyFiles("./template/"+language, tempPath)
+	if useFunction {
+		CopyFiles("./template/"+language, tempPath)
+	}
 
 	// Overlay in user-function
 	// CopyFiles(handler, functionPath)
@@ -227,7 +215,7 @@ func dockerBuildFolder(functionName string, handler string, language string) str
 	return tempPath
 }
 
-func buildFlagSlice(nocache bool, squash bool, httpProxy string, httpsProxy string, buildArgMap map[string]string, buildOptionPackages []string) []string {
+func buildFlagSlice(nocache bool, squash bool, httpProxy string, httpsProxy string, buildArgMap map[string]string, buildOptionPackages []string, buildLabelMap map[string]string) []string {
 
 	var spaceSafeBuildFlags []string
 
@@ -257,6 +245,10 @@ func buildFlagSlice(nocache bool, squash bool, httpProxy string, httpsProxy stri
 	if len(buildOptionPackages) > 0 {
 		buildOptionPackages = deDuplicate(buildOptionPackages)
 		spaceSafeBuildFlags = append(spaceSafeBuildFlags, "--build-arg", fmt.Sprintf("%s=%s", AdditionalPackageBuildArg, strings.Join(buildOptionPackages, " ")))
+	}
+
+	for k, v := range buildLabelMap {
+		spaceSafeBuildFlags = append(spaceSafeBuildFlags, "--label", fmt.Sprintf("%s=%s", k, v))
 	}
 
 	return spaceSafeBuildFlags
@@ -356,4 +348,8 @@ func deDuplicate(buildOptPackages []string) []string {
 		}
 	}
 	return retPackages
+}
+
+func isLanguageTemplate(language string) bool {
+	return strings.ToLower(language) != "dockerfile"
 }
