@@ -20,7 +20,7 @@ import (
 const AdditionalPackageBuildArg = "ADDITIONAL_PACKAGE"
 
 // BuildImage construct Docker image from function parameters
-func BuildImage(image string, handler string, functionName string, language string, nocache bool, squash bool, shrinkwrap bool, buildArgMap map[string]string, buildOptions []string, tag string) error {
+func BuildImage(image string, handler string, functionName string, language string, nocache bool, squash bool, shrinkwrap bool, buildArgMap map[string]string, buildOptions []string, tag string, notarize bool) error {
 
 	if stack.IsValidTemplate(language) {
 
@@ -94,6 +94,13 @@ func BuildImage(image string, handler string, functionName string, language stri
 		if buildPackageErr != nil {
 			return buildPackageErr
 
+		}
+
+		if notarize {
+			fbwl := &FileBackedSignersWhitelist{}
+			if err := notarizeImage(tempPath, fbwl); err != nil {
+				return err
+			}
 		}
 
 		dockerBuildVal := dockerBuild{

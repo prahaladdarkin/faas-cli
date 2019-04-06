@@ -27,6 +27,7 @@ var (
 	buildArgMap  map[string]string
 	buildOptions []string
 	tag          string
+	notarize     bool
 )
 
 func init() {
@@ -48,6 +49,8 @@ func init() {
 	// Set bash-completion.
 	_ = buildCmd.Flags().SetAnnotation("handler", cobra.BashCompSubdirsInDir, []string{})
 
+	//Set notarize flag
+	buildCmd.Flags().BoolVar(&notarize, "notarize", false, "Validate function image signatures")
 	faasCmd.AddCommand(buildCmd)
 }
 
@@ -64,7 +67,8 @@ var buildCmd = &cobra.Command{
 				 [--parallel PARALLEL_DEPTH]
 				 [--build-arg KEY=VALUE]
 				 [--build-option VALUE]
-				 [--tag <sha|branch>]`,
+				 [--tag <sha|branch>]
+				 [--notarize]`,
 	Short: "Builds OpenFaaS function containers",
 	Long: `Builds OpenFaaS function containers either via the supplied YAML config using
 the "--yaml" flag (which may contain multiple function definitions), or directly
@@ -77,7 +81,8 @@ via flags.`,
   faas-cli build -f ./stack.yml --filter "*gif*"
   faas-cli build -f ./stack.yml --regex "fn[0-9]_.*"
   faas-cli build --image=my_image --lang=python --handler=/path/to/fn/
-                 --name=my_fn --squash`,
+				 --name=my_fn --squash
+  faas-cli build -f ./stack.yml --notarize`,
 	PreRunE: preRunBuild,
 	RunE:    runBuild,
 }
@@ -158,7 +163,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		if len(functionName) == 0 {
 			return fmt.Errorf("please provide the deployed --name of your function")
 		}
-		err := builder.BuildImage(image, handler, functionName, language, nocache, squash, shrinkwrap, buildArgMap, buildOptions, tag)
+		err := builder.BuildImage(image, handler, functionName, language, nocache, squash, shrinkwrap, buildArgMap, buildOptions, tag, notarize)
 		if err != nil {
 			return err
 		}
@@ -182,7 +187,7 @@ func build(services *stack.Services, queueDepth int, shrinkwrap bool) {
 				} else {
 
 					combinedBuildOptions := combineBuildOpts(function.BuildOptions, buildOptions)
-					err := builder.BuildImage(function.Image, function.Handler, function.Name, function.Language, nocache, squash, shrinkwrap, buildArgMap, combinedBuildOptions, tag)
+					err := builder.BuildImage(function.Image, function.Handler, function.Name, function.Language, nocache, squash, shrinkwrap, buildArgMap, combinedBuildOptions, tag, notarize)
 					if err != nil {
 						log.Println(err)
 					}
