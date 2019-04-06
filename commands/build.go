@@ -19,15 +19,17 @@ import (
 
 // Flags that are to be added to commands.
 var (
-	nocache      bool
-	squash       bool
-	parallel     int
-	shrinkwrap   bool
-	buildArgs    []string
-	buildArgMap  map[string]string
-	buildOptions []string
-	tag          string
-	notarize     bool
+	nocache       bool
+	squash        bool
+	parallel      int
+	shrinkwrap    bool
+	buildArgs     []string
+	buildArgMap   map[string]string
+	buildOptions  []string
+	tag           string
+	buildLabels   []string
+	buildLabelMap map[string]string
+	notarize      bool
 )
 
 func init() {
@@ -45,6 +47,7 @@ func init() {
 	buildCmd.Flags().StringArrayVarP(&buildArgs, "build-arg", "b", []string{}, "Add a build-arg for Docker (KEY=VALUE)")
 	buildCmd.Flags().StringArrayVarP(&buildOptions, "build-option", "o", []string{}, "Set a build option, e.g. dev")
 	buildCmd.Flags().StringVar(&tag, "tag", "", "Override latest tag on function Docker image, takes 'sha' or 'branch'")
+	buildCmd.Flags().StringArrayVar(&buildLabels, "build-label", []string{}, "Add a label for Docker image (LABEL=VALUE)")
 
 	// Set bash-completion.
 	_ = buildCmd.Flags().SetAnnotation("handler", cobra.BashCompSubdirsInDir, []string{})
@@ -81,8 +84,9 @@ via flags.`,
   faas-cli build -f ./stack.yml --filter "*gif*"
   faas-cli build -f ./stack.yml --regex "fn[0-9]_.*"
   faas-cli build --image=my_image --lang=python --handler=/path/to/fn/
-				 --name=my_fn --squash
-  faas-cli build -f ./stack.yml --notarize`,
+                 --name=my_fn --squash
+  faas-cli build -f ./stack.yml --build-label org.label-schema.label-name="value",
+  faas-cli build -f ./stack.yml --notarize,`,
 	PreRunE: preRunBuild,
 	RunE:    runBuild,
 }
@@ -96,6 +100,8 @@ func preRunBuild(cmd *cobra.Command, args []string) error {
 	if err == nil {
 		buildArgMap = mapped
 	}
+
+	buildLabelMap, err = parseMap(buildLabels, "build-label")
 
 	return err
 }
@@ -163,7 +169,8 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		if len(functionName) == 0 {
 			return fmt.Errorf("please provide the deployed --name of your function")
 		}
-		err := builder.BuildImage(image, handler, functionName, language, nocache, squash, shrinkwrap, buildArgMap, buildOptions, tag, notarize)
+
+		err := builder.BuildImage(image, handler, functionName, language, nocache, squash, shrinkwrap, buildArgMap, buildOptions, tag, buildLabelMap, notarize)
 		if err != nil {
 			return err
 		}
@@ -187,7 +194,7 @@ func build(services *stack.Services, queueDepth int, shrinkwrap bool) {
 				} else {
 
 					combinedBuildOptions := combineBuildOpts(function.BuildOptions, buildOptions)
-					err := builder.BuildImage(function.Image, function.Handler, function.Name, function.Language, nocache, squash, shrinkwrap, buildArgMap, combinedBuildOptions, tag, notarize)
+					err := builder.BuildImage(function.Image, function.Handler, function.Name, function.Language, nocache, squash, shrinkwrap, buildArgMap, combinedBuildOptions, tag, buildLabelMap, notarize)
 					if err != nil {
 						log.Println(err)
 					}
