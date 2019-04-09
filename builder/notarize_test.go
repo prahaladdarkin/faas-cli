@@ -123,7 +123,11 @@ type MockWhitelist struct {
 	validSigners []string
 }
 
-func (mwl *MockWhitelist) GetSigners(whitelistUrl string) ([]string, error) {
+func (mwl *MockWhitelist) SetSigners(signers []string) {
+	mwl.validSigners = make([]string, len(signers))
+	copy(mwl.validSigners, signers)
+}
+func (mwl *MockWhitelist) GetSigners() ([]string, error) {
 	return mwl.validSigners, nil
 }
 func TestValidSigners(t *testing.T) {
@@ -165,5 +169,4 @@ func TestAnyOneSigner(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected notarize check to pass but failed with %#v.", err)
 	}
-
 }

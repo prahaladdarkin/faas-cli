@@ -25,8 +25,10 @@ func notarizeImage(tempPath string, whitelist SignersWhitelist) error {
 		return err
 	}
 	fmt.Printf(aec.YellowF.Apply(" Validating  signatures for image %s.\n"), imageName)
+
 	var image = ""
 	tag := "latest"
+
 	imageNameComponents := strings.Split(imageName, ":")
 	if len(imageNameComponents) < 2 {
 		fmt.Printf(aec.YellowF.Apply(" No tag found for image %s. Assuming latest..\n"), imageNameComponents[0])
@@ -42,11 +44,11 @@ func notarizeImage(tempPath string, whitelist SignersWhitelist) error {
 		return decodeError
 	}
 	if (len(trustInfos)) == 0 {
-		return fmt.Errorf(aec.RedF.Apply("The base image %s is not signed"), imageName)
+		return fmt.Errorf(aec.RedF.Apply("The base image %s is not signed\n"), imageName)
 	}
 	//loop through the list of valid signers and ensure that the image signers are a subset of that list
 	allowedSigners := make(map[string]bool, 0)
-	signersWhileList, err := whitelist.GetSigners("signers.txt")
+	signersWhileList, err := whitelist.GetSigners()
 	if err != nil {
 		return err
 	}
@@ -61,9 +63,9 @@ func notarizeImage(tempPath string, whitelist SignersWhitelist) error {
 
 	for _, trust := range trustInfos {
 
-		if trust.Name != image {
+		if trust.Name != imageName {
 			//can never happen. pathological case
-			return fmt.Errorf(aec.RedF.Apply("Image name in trust info does not match base image name"))
+			return fmt.Errorf(aec.RedF.Apply("Image name %s in trust info does not match base image name %s"), trust.Name, image)
 		}
 		for _, signer := range trust.Signers {
 

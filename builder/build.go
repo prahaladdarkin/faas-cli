@@ -78,6 +78,7 @@ func BuildImage(image string, handler string, functionName string, language stri
 
 		if notarize {
 			fbwl := &FileBackedSignersWhitelist{}
+			fbwl.filePath = "signers.txt"
 			if err := notarizeImage(tempPath, fbwl); err != nil {
 				return err
 			}
