@@ -9,18 +9,20 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"time"
 
-	"github.com/ryanuber/go-glob"
+	envsubst "github.com/drone/envsubst"
+	glob "github.com/ryanuber/go-glob"
 	yaml "gopkg.in/yaml.v2"
 )
 
 const providerName = "faas"
 const providerNameLong = "openfaas"
 
-// ParseYAMLData parse YAML file into a stack of "services".
-func ParseYAMLFile(yamlFile, regex, filter string) (*Services, error) {
+// ParseYAMLFile parse YAML file into a stack of "services".
+func ParseYAMLFile(yamlFile, regex, filter string, envsubst bool) (*Services, error) {
 	var err error
 	var fileData []byte
 	urlParsed, err := url.Parse(yamlFile)
@@ -36,16 +38,45 @@ func ParseYAMLFile(yamlFile, regex, filter string) (*Services, error) {
 			return nil, err
 		}
 	}
-	return ParseYAMLData(fileData, regex, filter)
+	return ParseYAMLData(fileData, regex, filter, envsubst)
+}
+
+func substituteEnvironment(data []byte) ([]byte, error) {
+
+	ret, err := envsubst.Parse(string(data))
+	if err != nil {
+		return nil, err
+	}
+
+	res, resErr := ret.Execute(func(input string) string {
+		if val, ok := os.LookupEnv(input); ok {
+			return val
+		}
+		return ""
+	})
+
+	return []byte(res), resErr
 }
 
 // ParseYAMLData parse YAML data into a stack of "services".
-func ParseYAMLData(fileData []byte, regex string, filter string) (*Services, error) {
+func ParseYAMLData(fileData []byte, regex string, filter string, envsubst bool) (*Services, error) {
 	var services Services
 	regexExists := len(regex) > 0
 	filterExists := len(filter) > 0
 
-	err := yaml.Unmarshal(fileData, &services)
+	var source []byte
+	if envsubst {
+		substData, substErr := substituteEnvironment(fileData)
+
+		if substErr != nil {
+			return &services, substErr
+		}
+		source = substData
+	} else {
+		source = fileData
+	}
+
+	err := yaml.Unmarshal(source, &services)
 	if err != nil {
 		fmt.Printf("Error with YAML file\n")
 		return nil, err

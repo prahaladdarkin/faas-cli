@@ -2,7 +2,7 @@
 FROM golang:1.11 as builder
 
 WORKDIR /usr/bin/
-RUN curl -sLSf https://raw.githubusercontent.com/alexellis/license-check/master/get.sh | sh
+RUN curl -sLSf https://raw.githubusercontent.com/teamserverless/license-check/master/get.sh | sh
 
 WORKDIR /go/src/github.com/openfaas/faas-cli
 COPY . .
@@ -22,7 +22,7 @@ RUN go test $(go list ./... | grep -v /vendor/ | grep -v /template/|grep -v /bui
     -a -installsuffix cgo -o faas-cli
 
 # Release stage
-FROM alpine:3.8
+FROM alpine:3.9
 
 RUN apk --no-cache add ca-certificates git
 

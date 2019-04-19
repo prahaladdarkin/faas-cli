@@ -41,6 +41,22 @@
   version = "v0.6.1"
 
 [[projects]]
+<<<<<<< HEAD
+=======
+  digest = "1:c150032ad5f0d37e884ce6428425292f1f866fd9c3fc4661a1ca539fda85460c"
+  name = "github.com/drone/envsubst"
+  packages = [
+    ".",
+    "parse",
+    "path",
+  ]
+  pruneopts = "UT"
+  revision = "5a78055244d6b899c2a2eb158c8454f548af9ab2"
+  version = "v1.0.2"
+
+[[projects]]
+  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
+>>>>>>> upstream/master
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
@@ -102,6 +118,22 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
+<<<<<<< HEAD
   inputs-digest = "9638f752e825e9a86859758ea38eef1229a0c83db5ba01080b1e980efbcb679a"
+=======
+  input-imports = [
+    "github.com/alexellis/hmac",
+    "github.com/docker/docker-credential-helpers/client",
+    "github.com/docker/docker/pkg/term",
+    "github.com/drone/envsubst",
+    "github.com/mitchellh/go-homedir",
+    "github.com/morikuni/aec",
+    "github.com/openfaas/faas/gateway/requests",
+    "github.com/ryanuber/go-glob",
+    "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
+    "gopkg.in/yaml.v2",
+  ]
+>>>>>>> upstream/master
   solver-name = "gps-cdcl"
   solver-version = 1
